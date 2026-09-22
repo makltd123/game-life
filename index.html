@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Modifying Ecosystem Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .simulation-container {
+            display: flex;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #333;
+            background-color: #fff;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 300px;
+        }
+        .control-group {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .stats {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        .stat-label {
+            font-weight: bold;
+        }
+        .stat-value {
+            color: #666;
+        }
+        h1 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #444;
+            font-size: 16px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        .world-state {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 10px;
+        }
+        .world-param {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Self-Modifying Ecosystem Simulation</h1>
+
+        <div class="simulation-container">
+            <canvas id="simulationCanvas" width="600" height="600"></canvas>
+
+            <div class="controls">
+                <div class="control-group">
+                    <h2>Controls</h2>
+                    <button id="playPauseBtn">Play</button>
+                    <button id="resetBtn">Reset</button>
+                    <button id="stepBtn">Step</button>
+
+                    <div class="slider-container">
+                        <label for="speedSlider">Speed: <span id="speedValue">1</span>x</label>
+                        <input type="range" id="speedSlider" min="1" max="10" value="1">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h2>World State</h2>
+                    <div class="world-state">
+                        <div class="world-param">
+                            <span>Resource Spawn:</span>
+                            <span id="resourceSpawnRate">5%</span>
+                        </div>
+                        <div class="world-param">
+                            <span>Resource Decay:</span>
+                            <span id="resourceDecayRate">2%</span>
+                        </div>
+                        <div class="world-param">
+                            <span>Mutation Rate:</span>
+                            <span id="mutationRate">3%</span>
+                        </div>
+                        <div class="world-param">
+                            <span>Gravity Bias:</span>
+                            <span id="gravityBias">0.5</span>
+                        </div>
+                        <div class="world-param">
+                            <span>Hostility Level:</span>
+                            <span id="hostilityLevel">0.3</span>
+                        </div>
+                        <div class="world-param">
+                            <span>Stability Index:</span>
+                            <span id="stabilityIndex">1.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h2>Statistics</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Generation:</span>
+                            <span class="stat-value" id="generationStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Population:</span>
+                            <span class="stat-value" id="populationStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Avg Influence:</span>
+                            <span class="stat-value" id="avgInfluenceStat">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Mutation Rate:</span>
+                            <span class="stat-value" id="currentMutationRate">3%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">System Volatility:</span>
+                            <span class="stat-value" id="volatilityStat">0%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">World Changes:</span>
+                            <span class="stat-value" id="worldChangesStat">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation Constants
+        const GRID_SIZE = 100;
+        const CELL_SIZE = 6;
+        const MAX_ENERGY = 100;
+        const MIN_ENERGY_TO_REPRODUCE = 60;
+        const ENERGY_LOSS_PER_STEP = 0.3;
+        const ENERGY_GAIN_FROM_RESOURCE = 25;
+        const VISION_RANGE = 3;
+        const MAX_AGENTS = 500;
+        const MAX_RESOURCES = 300;
+
+        // World State Parameters (these can be modified by agents)
+        const worldState = {
+            resource_spawn_rate: 0.05,    // 5% chance per cell per step
+            resource_decay_rate: 0.02,    // 2% chance to decay per step
+            mutation_rate: 0.03,          // 3% chance of mutation
+            gravity_bias: 0.5,           // 0-1, affects resource movement
+            hostility_level: 0.3,        // 0-1, affects agent interactions
+            stability_index: 1.0         // 0-2, higher = more stable
+        };
+
+        // Simulation State
+        let simulation = {
+            isRunning: false,
+            generation: 0,
+            stepCount: 0,
+            grid: [],
+            agents: [],
+            resources: [],
+            stats: {
+                totalAgentsEver: 0,
+                agentsAlive: 0,
+                totalInfluence: 0,
+                worldChanges: 0,
+                volatilityHistory: [],
+                mutationRateHistory: []
+            },
+            settings: {
+                speed: 1,
+                animationFrame: null
+            }
+        };
+
+        // Canvas and UI elements
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const stepBtn = document.getElementById('stepBtn');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+
+        // World state display elements
+        const resourceSpawnRateDisplay = document.getElementById('resourceSpawnRate');
+        const resourceDecayRateDisplay = document.getElementById('resourceDecayRate');
+        const mutationRateDisplay = document.getElementById('mutationRate');
+        const gravityBiasDisplay = document.getElementById('gravityBias');
+        const hostilityLevelDisplay = document.getElementById('hostilityLevel');
+        const stabilityIndexDisplay = document.getElementById('stabilityIndex');
+
+        // Stat elements
+        const generationStat = document.getElementById('generationStat');
+        const populationStat = document.getElementById('populationStat');
+        const avgInfluenceStat = document.getElementById('avgInfluenceStat');
+        const currentMutationRate = document.getElementById('currentMutationRate');
+        const volatilityStat = document.getElementById('volatilityStat');
+        const worldChangesStat = document.getElementById('worldChangesStat');
+
+        // Initialize simulation
+        function initSimulation() {
+            // Clear any existing animation frame
+            if (simulation.settings.animationFrame) {
+                cancelAnimationFrame(simulation.settings.animationFrame);
+                simulation.settings.animationFrame = null;
+            }
+
+            simulation.grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+            simulation.agents = [];
+            simulation.resources = [];
+            simulation.generation = 0;
+            simulation.stepCount = 0;
+            simulation.stats = {
+                totalAgentsEver: 0,
+                agentsAlive: 0,
+                totalInfluence: 0,
+                worldChanges: 0,
+                volatilityHistory: [],
+                mutationRateHistory: []
+            };
+
+            // Reset world state to initial values
+            worldState.resource_spawn_rate = 0.05;
+            worldState.resource_decay_rate = 0.02;
+            worldState.mutation_rate = 0.03;
+            worldState.gravity_bias = 0.5;
+            worldState.hostility_level = 0.3;
+            worldState.stability_index = 1.0;
+
+            // Add initial agents
+            for (let i = 0; i < 30; i++) {
+                addRandomAgent();
+            }
+
+            // Add initial resources
+            spawnResources();
+
+            updateUI();
+            render();
+        }
+
+        // Add a random agent
+        function addRandomAgent() {
+            let x, y;
+            let attempts = 0;
+
+            // Find empty cell
+            do {
+                x = Math.floor(Math.random() * GRID_SIZE);
+                y = Math.floor(Math.random() * GRID_SIZE);
+                attempts++;
+
+                if (attempts > 100) {
+                    // If can't find empty cell, place anyway
+                    break;
+                }
+            } while (simulation.grid[x][y] !== null);
+
+            const agent = createAgent(x, y);
+            simulation.agents.push(agent);
+            simulation.grid[x][y] = agent;
+            simulation.stats.totalAgentsEver++;
+            simulation.stats.agentsAlive++;
+        }
+
+        // Create a new agent
+        function createAgent(x, y) {
+            // Generate random genome (behavior policy)
+            const genome = {
+                resource_seeking: Math.random(),
+                aggression: Math.random(),
+                cooperation: Math.random(),
+                reproduction_drive: Math.random(),
+                world_influence: Math.random(),
+                adaptability: Math.random()
+            };
+
+            // Normalize genome values
+            const sum = Object.values(genome).reduce((a, b) => a + b, 0);
+            for (const key in genome) {
+                genome[key] = genome[key] / sum;
+            }
+
+            return {
+                x: x,
+                y: y,
+                energy: Math.random() * 30 + 40,
+                genome: genome,
+                memory: [],
+                influence_score: Math.random() * 0.5 + 0.1,
+                age: 0,
+                alive: true,
+                color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
+                world_change_history: []
+            };
+        }
+
+        // Spawn resources
+        function spawnResources() {
+            const targetResources = Math.min(MAX_RESOURCES, Math.floor(GRID_SIZE * GRID_SIZE * worldState.resource_spawn_rate));
+
+            while (simulation.resources.length < targetResources) {
+                const x = Math.floor(Math.random() * GRID_SIZE);
+                const y = Math.floor(Math.random() * GRID_SIZE);
+
+                // Don't spawn on agents
+                if (simulation.grid[x][y] === null) {
+                    simulation.resources.push({x: x, y: y, age: 0});
+                }
+            }
+        }
+
+        // Main simulation step
+        function simulationStep() {
+            if (!simulation.isRunning) return;
+
+            simulation.stepCount++;
+            simulation.stats.volatilityHistory.push(calculateVolatility());
+
+            // Limit volatility history size
+            if (simulation.stats.volatilityHistory.length > 100) {
+                simulation.stats.volatilityHistory.shift();
+            }
+
+            // Process resources
+            processResources();
+
+            // Process agents
+            processAgents();
+
+            // Apply world changes from successful agents
+            applyWorldChanges();
+
+            // Spawn new resources
+            spawnResources();
+
+            // Update generation counter periodically
+            if (simulation.stepCount % 50 === 0) {
+                simulation.generation++;
+            }
+
+            updateUI();
+            render();
+
+            // Continue animation loop
+            const delay = Math.max(10, 100 / simulation.settings.speed);
+            simulation.settings.animationFrame = setTimeout(simulationStep, delay);
+        }
+
+        // Process resources
+        function processResources() {
+            // Resource decay
+            for (let i = simulation.resources.length - 1; i >= 0; i--) {
+                const resource = simulation.resources[i];
+
+                // Random decay based on world state
+                if (Math.random() < worldState.resource_decay_rate) {
+                    simulation.resources.splice(i, 1);
+                    continue;
+                }
+
+                // Gravity bias - resources tend to move downward
+                if (Math.random() < worldState.gravity_bias * 0.2) {
+                    if (resource.y < GRID_SIZE - 1 && simulation.grid[resource.x][resource.y + 1] === null) {
+                        resource.y++;
+                    }
+                }
+
+                resource.age++;
+            }
+        }
+
+        // Process agents
+        function processAgents() {
+            // Shuffle agents to process in random order
+            const agents = [...simulation.agents];
+            shuffleArray(agents);
+
+            for (const agent of agents) {
+                if (!agent.alive) continue;
+
+                // Age the agent
+                agent.age++;
+
+                // Energy loss
+                agent.energy -= ENERGY_LOSS_PER_STEP;
+
+                // Check if agent dies
+                if (agent.energy <= 0) {
+                    agent.alive = false;
+                    simulation.grid[agent.x][agent.y] = null;
+                    simulation.stats.agentsAlive--;
+                    continue;
+                }
+
+                // Agent behavior
+                agentBehavior(agent);
+
+                // Update memory (limit to last 10 steps)
+                agent.memory.push({
+                    energy: agent.energy,
+                    x: agent.x,
+                    y: agent.y,
+                    resources_nearby: countNearbyResources(agent.x, agent.y),
+                    agents_nearby: countNearbyAgents(agent.x, agent.y)
+                });
+
+                if (agent.memory.length > 10) {
+                    agent.memory.shift();
+                }
+            }
+
+            // Remove dead agents
+            simulation.agents = simulation.agents.filter(agent => agent.alive);
+        }
+
+        // Agent behavior
+        function agentBehavior(agent) {
+            // Find nearby resources
+            const nearbyResources = findNearbyResources(agent.x, agent.y);
+
+            // Find nearby agents
+            const nearbyAgents = findNearbyAgents(agent.x, agent.y);
+
+            // Decision making based on genome
+            let actionTaken = false;
+
+            // 1. Try to consume resources if hungry
+            if (agent.energy < MAX_ENERGY * 0.8 && nearbyResources.length > 0) {
+                // Move toward closest resource
+                const closestResource = findClosestObject(agent.x, agent.y, nearbyResources);
+                if (moveAgent(agent, closestResource.x, closestResource.y)) {
+                    actionTaken = true;
+
+                    // Check if we're on the resource
+                    if (agent.x === closestResource.x && agent.y === closestResource.y) {
+                        // Consume resource
+                        agent.energy = Math.min(MAX_ENERGY, agent.energy + ENERGY_GAIN_FROM_RESOURCE);
+
+                        // Remove resource
+                        const resourceIndex = simulation.resources.findIndex(r =>
+                            r.x === closestResource.x && r.y === closestResource.y);
+                        if (resourceIndex >= 0) {
+                            simulation.resources.splice(resourceIndex, 1);
+                        }
+                    }
+                }
+            }
+
+            // 2. Reproduction if conditions are good
+            if (!actionTaken && agent.energy >= MIN_ENERGY_TO_REPRODUCE &&
+                simulation.stats.agentsAlive < MAX_AGENTS &&
+                Math.random() < agent.genome.reproduction_drive * 0.3) {
+
+                reproduceAgent(agent);
+                actionTaken = true;
+            }
+
+            // 3. Random movement if no other action
+            if (!actionTaken && Math.random() < 0.7) {
+                randomMovement(agent);
+            }
+
+            // 4. Try to influence world if successful enough
+            if (agent.energy > MAX_ENERGY * 0.6 && agent.age > 20) {
+                attemptWorldInfluence(agent);
+            }
+        }
+
+        // Move agent toward target
+        function moveAgent(agent, targetX, targetY) {
+            const dx = targetX - agent.x;
+            const dy = targetY - agent.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 1) return false;
+
+            // Calculate direction
+            let newX = agent.x;
+            let newY = agent.y;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                newX += dx > 0 ? 1 : -1;
+            } else {
+                newY += dy > 0 ? 1 : -1;
+            }
+
+            // Check bounds
+            newX = Math.max(0, Math.min(GRID_SIZE - 1, newX));
+            newY = Math.max(0, Math.min(GRID_SIZE - 1, newY));
+
+            // Check if cell is empty
+            if (simulation.grid[newX][newY] === null) {
+                // Clear old position
+                simulation.grid[agent.x][agent.y] = null;
+
+                // Update position
+                agent.x = newX;
+                agent.y = newY;
+
+                // Set new position
+                simulation.grid[newX][newY] = agent;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        // Random movement
+        function randomMovement(agent) {
+            const directions = [
+                {dx: 1, dy: 0}, {dx: -1, dy: 0},
+                {dx: 0, dy: 1}, {dx: 0, dy: -1}
+            ];
+
+            shuffleArray(directions);
+
+            for (const dir of directions) {
+                const newX = agent.x + dir.dx;
+                const newY = agent.y + dir.dy;
+
+                if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE &&
+                    simulation.grid[newX][newY] === null) {
+
+                    // Clear old position
+                    simulation.grid[agent.x][agent.y] = null;
+
+                    // Update position
+                    agent.x = newX;
+                    agent.y = newY;
+
+                    // Set new position
+                    simulation.grid[newX][newY] = agent;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Reproduce agent
+        function reproduceAgent(parent) {
+            // Find empty adjacent cell
+            const directions = [
+                {dx: 1, dy: 0}, {dx: -1, dy: 0},
+                {dx: 0, dy: 1}, {dx: 0, dy: -1}
+            ];
+
+            shuffleArray(directions);
+
+            for (const dir of directions) {
+                const newX = parent.x + dir.dx;
+                const newY = parent.y + dir.dy;
+
+                if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE &&
+                    simulation.grid[newX][newY] === null) {
+
+                    // Create child agent with mutated genome
+                    const child = createAgent(newX, newY);
+
+                    // Inherit parent's genome with possible mutations
+                    for (const key in child.genome) {
+                        if (Math.random() < worldState.mutation_rate) {
+                            // Mutation
+                            child.genome[key] = Math.max(0, Math.min(1,
+                                parent.genome[key] + (Math.random() - 0.5) * 0.3));
+                        } else {
+                            // Inherit from parent
+                            child.genome[key] = parent.genome[key];
+                        }
+                    }
+
+                    // Normalize genome
+                    const sum = Object.values(child.genome).reduce((a, b) => a + b, 0);
+                    for (const key in child.genome) {
+                        child.genome[key] = child.genome[key] / sum;
+                    }
+
+                    // Child gets half of parent's energy
+                    parent.energy *= 0.7;
+                    child.energy = parent.energy * 0.5;
+
+                    // Inherit influence score with variation
+                    child.influence_score = parent.influence_score *
+                        (0.8 + Math.random() * 0.4);
+
+                    // Add child to simulation
+                    simulation.agents.push(child);
+                    simulation.grid[newX][newY] = child;
+                    simulation.stats.totalAgentsEver++;
+                    simulation.stats.agentsAlive++;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // Attempt to influence world state
+        function attemptWorldInfluence(agent) {
+            // Calculate influence power based on energy and influence score
+            const influencePower = (agent.energy / MAX_ENERGY) * agent.influence_score;
+
+            // Only attempt if significant influence
+            if (influencePower < 0.1) return;
+
+            // Determine what to change based on genome
+            const changeType = Math.random();
+
+            if (changeType < agent.genome.resource_seeking * 0.3) {
+                // Try to increase resource spawn rate
+                const proposedChange = {
+                    type: 'resource_spawn_rate',
+                    value: worldState.resource_spawn_rate * (1 + influencePower * 0.2),
+                    agentId: simulation.agents.indexOf(agent),
+                    power: influencePower
+                };
+                agent.world_change_history.push(proposedChange);
+            }
+            else if (changeType < (agent.genome.resource_seeking + agent.genome.cooperation) * 0.3) {
+                // Try to decrease hostility
+                const proposedChange = {
+                    type: 'hostility_level',
+                    value: worldState.hostility_level * (1 - influencePower * 0.3),
+                    agentId: simulation.agents.indexOf(agent),
+                    power: influencePower
+                };
+                agent.world_change_history.push(proposedChange);
+            }
+            else if (changeType < (agent.genome.resource_seeking + agent.genome.cooperation +
+                                  agent.genome.aggression) * 0.3) {
+                // Try to increase hostility
+                const proposedChange = {
+                    type: 'hostility_level',
+                    value: worldState.hostility_level * (1 + influencePower * 0.3),
+                    agentId: simulation.agents.indexOf(agent),
+                    power: influencePower
+                };
+                agent.world_change_history.push(proposedChange);
+            }
+            else if (changeType < (agent.genome.resource_seeking + agent.genome.cooperation +
+                                  agent.genome.aggression + agent.genome.adaptability) * 0.3) {
+                // Try to decrease mutation rate (more stability)
+                const proposedChange = {
+                    type: 'mutation_rate',
+                    value: worldState.mutation_rate * (1 - influencePower * 0.4),
+                    agentId: simulation.agents.indexOf(agent),
+                    power: influencePower
+                };
+                agent.world_change_history.push(proposedChange);
+            }
+            else {
+                // Try to change gravity bias
+                const proposedChange = {
+                    type: 'gravity_bias',
+                    value: Math.max(0, Math.min(1,
+                        worldState.gravity_bias + (Math.random() - 0.5) * influencePower * 0.5)),
+                    agentId: simulation.agents.indexOf(agent),
+                    power: influencePower
+                };
+                agent.world_change_history.push(proposedChange);
+            }
+        }
+
+        // Apply world changes from all agents
+        function applyWorldChanges() {
+            // Collect all proposed changes
+            const proposedChanges = [];
+
+            for (const agent of simulation.agents) {
+                if (agent.world_change_history.length > 0) {
+                    // Get the most recent change proposal
+                    const lastChange = agent.world_change_history[agent.world_change_history.length - 1];
+                    proposedChanges.push(lastChange);
+                }
+            }
+
+            if (proposedChanges.length === 0) return;
+
+            // Group changes by type
+            const changesByType = {};
+
+            for (const change of proposedChanges) {
+                if (!changesByType[change.type]) {
+                    changesByType[change.type] = [];
+                }
+                changesByType[change.type].push(change);
+            }
+
+            // Apply weighted average changes for each parameter
+            for (const type in changesByType) {
+                const changes = changesByType[type];
+                let totalWeight = 0;
+                let weightedSum = 0;
+
+                for (const change of changes) {
+                    totalWeight += change.power;
+                    weightedSum += change.value * change.power;
+                }
+
+                if (totalWeight > 0) {
+                    const newValue = weightedSum / totalWeight;
+
+                    // Apply change with some resistance (stability factor)
+                    const resistance = 0.7 + worldState.stability_index * 0.2;
+                    const currentValue = worldState[type];
+
+                    worldState[type] = currentValue * resistance + newValue * (1 - resistance);
+
+                    // Clamp values to reasonable ranges
+                    switch (type) {
+                        case 'resource_spawn_rate':
+                            worldState[type] = Math.max(0.01, Math.min(0.2, worldState[type]));
+                            break;
+                        case 'resource_decay_rate':
+                            worldState[type] = Math.max(0.01, Math.min(0.1, worldState[type]));
+                            break;
+                        case 'mutation_rate':
+                            worldState[type] = Math.max(0.01, Math.min(0.15, worldState[type]));
+                            break;
+                        case 'gravity_bias':
+                            worldState[type] = Math.max(0, Math.min(1, worldState[type]));
+                            break;
+                        case 'hostility_level':
+                            worldState[type] = Math.max(0, Math.min(1, worldState[type]));
+                            break;
+                    }
+
+                    // Track the change
+                    simulation.stats.worldChanges++;
+                }
+            }
+
+            // Update stability index based on recent changes
+            updateStabilityIndex();
+        }
+
+        // Update stability index
+        function updateStabilityIndex() {
+            // Stability decreases with more world changes and higher hostility
+            const changeFactor = Math.min(1, simulation.stats.worldChanges / 50);
+            const hostilityFactor = worldState.hostility_level;
+
+            // Stability increases with lower mutation rates
+            const mutationFactor = 1 - worldState.mutation_rate / 0.15;
+
+            worldState.stability_index = 0.5 + mutationFactor * 0.5 - changeFactor * 0.3 - hostilityFactor * 0.2;
+            worldState.stability_index = Math.max(0.1, Math.min(2.0, worldState.stability_index));
+        }
+
+        // Calculate system volatility
+        function calculateVolatility() {
+            if (simulation.stats.volatilityHistory.length < 5) {
+                return 0;
+            }
+
+            // Calculate changes in world parameters
+            const paramChanges = [
+                worldState.resource_spawn_rate,
+                worldState.resource_decay_rate,
+                worldState.mutation_rate,
+                worldState.gravity_bias,
+                worldState.hostility_level
+            ];
+
+            // Calculate population change rate
+            const popChange = Math.abs(simulation.stats.agentsAlive - simulation.agents.length) / Math.max(1, simulation.agents.length);
+
+            // Combine factors
+            const paramVolatility = paramChanges.reduce((sum, param, index) => {
+                // Simple measure: distance from initial values
+                const initialValues = [0.05, 0.02, 0.03, 0.5, 0.3];
+                return sum + Math.abs(param - initialValues[index]);
+            }, 0);
+
+            const volatility = (paramVolatility * 10 + popChange * 5) / 15;
+            return Math.min(1, volatility);
+        }
+
+        // Find nearby resources
+        function findNearbyResources(x, y) {
+            const resources = [];
+
+            for (let i = Math.max(0, x - VISION_RANGE); i <= Math.min(GRID_SIZE - 1, x + VISION_RANGE); i++) {
+                for (let j = Math.max(0, y - VISION_RANGE); j <= Math.min(GRID_SIZE - 1, y + VISION_RANGE); j++) {
+                    if (simulation.resources.some(r => r.x === i && r.y === j)) {
+                        resources.push({x: i, y: j});
+                    }
+                }
+            }
+
+            return resources;
+        }
+
+        // Find nearby agents
+        function findNearbyAgents(x, y) {
+            const agents = [];
+
+            for (let i = Math.max(0, x - VISION_RANGE); i <= Math.min(GRID_SIZE - 1, x + VISION_RANGE); i++) {
+                for (let j = Math.max(0, y - VISION_RANGE); j <= Math.min(GRID_SIZE - 1, y + VISION_RANGE); j++) {
+                    if (i === x && j === y) continue;
+
+                    if (simulation.grid[i][j] !== null && simulation.grid[i][j].alive) {
+                        agents.push(simulation.grid[i][j]);
+                    }
+                }
+            }
+
+            return agents;
+        }
+
+        // Count nearby resources
+        function countNearbyResources(x, y) {
+            return findNearbyResources(x, y).length;
+        }
+
+        // Count nearby agents
+        function countNearbyAgents(x, y) {
+            return findNearbyAgents(x, y).length;
+        }
+
+        // Find closest object
+        function findClosestObject(x, y, objects) {
+            if (objects.length === 0) return null;
+
+            let closest = objects[0];
+            let minDistance = distance(x, y, closest.x, closest.y);
+
+            for (let i = 1; i < objects.length; i++) {
+                const dist = distance(x, y, objects[i].x, objects[i].y);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closest = objects[i];
+                }
+            }
+
+            return closest;
+        }
+
+        // Distance between two points
+        function distance(x1, y1, x2, y2) {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        // Shuffle array (Fisher-Yates algorithm)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            generationStat.textContent = simulation.generation;
+            populationStat.textContent = simulation.stats.agentsAlive;
+
+            // Calculate average influence
+            if (simulation.agents.length > 0) {
+                const totalInfluence = simulation.agents.reduce((sum, agent) => sum + agent.influence_score, 0);
+                const avgInfluence = totalInfluence / simulation.agents.length;
+                avgInfluenceStat.textContent = avgInfluence.toFixed(3);
+                simulation.stats.totalInfluence = totalInfluence;
+            } else {
+                avgInfluenceStat.textContent = '0';
+            }
+
+            // Update world state display
+            resourceSpawnRateDisplay.textContent = (worldState.resource_spawn_rate * 100).toFixed(1) + '%';
+            resourceDecayRateDisplay.textContent = (worldState.resource_decay_rate * 100).toFixed(1) + '%';
+            mutationRateDisplay.textContent = (worldState.mutation_rate * 100).toFixed(1) + '%';
+            gravityBiasDisplay.textContent = worldState.gravity_bias.toFixed(2);
+            hostilityLevelDisplay.textContent = worldState.hostility_level.toFixed(2);
+            stabilityIndexDisplay.textContent = worldState.stability_index.toFixed(2);
+
+            currentMutationRate.textContent = (worldState.mutation_rate * 100).toFixed(1) + '%';
+            worldChangesStat.textContent = simulation.stats.worldChanges;
+
+            // Calculate volatility
+            if (simulation.stats.volatilityHistory.length > 0) {
+                const recentVolatility = simulation.stats.volatilityHistory.slice(-10);
+                const avgVolatility = recentVolatility.reduce((a, b) => a + b, 0) / recentVolatility.length;
+                volatilityStat.textContent = (avgVolatility * 100).toFixed(1) + '%';
+            } else {
+                volatilityStat.textContent = '0%';
+            }
+        }
+
+        // Render the simulation
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw dynamic background based on world state
+            drawWorldBackground();
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.lineWidth = 0.3;
+
+            for (let x = 0; x < GRID_SIZE; x++) {
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    ctx.strokeRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+
+            // Draw resources
+            for (const resource of simulation.resources) {
+                // Resource color changes with world state
+                const hostilityEffect = worldState.hostility_level * 100;
+                ctx.fillStyle = `hsl(120, 70%, ${50 + hostilityEffect}%)`;
+                ctx.fillRect(resource.x * CELL_SIZE, resource.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+
+            // Draw agents
+            for (const agent of simulation.agents) {
+                if (!agent.alive) continue;
+
+                // Calculate color based on energy and influence
+                const hue = parseInt(agent.color.match(/\d+/)[0]);
+                const energyPercentage = agent.energy / MAX_ENERGY;
+                const influencePercentage = agent.influence_score * 2;
+
+                // Brightness based on energy
+                const lightness = 30 + energyPercentage * 40;
+
+                // Saturation based on influence
+                const saturation = 50 + influencePercentage * 30;
+
+                ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+
+                // Draw agent
+                ctx.fillRect(agent.x * CELL_SIZE, agent.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+                // Draw border based on influence score
+                const borderWidth = 1 + agent.influence_score * 2;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = borderWidth;
+                ctx.strokeRect(
+                    agent.x * CELL_SIZE + borderWidth/2,
+                    agent.y * CELL_SIZE + borderWidth/2,
+                    CELL_SIZE - borderWidth,
+                    CELL_SIZE - borderWidth
+                );
+            }
+
+            // Draw world state indicators
+            drawWorldStateIndicators();
+        }
+
+        // Draw dynamic world background
+        function drawWorldBackground() {
+            // Create gradient based on world state
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+
+            // Base colors change with stability
+            const stability = worldState.stability_index;
+            const hostility = worldState.hostility_level;
+
+            // Stable worlds: blues/greens, unstable: reds/oranges
+            const color1 = stability > 1.2 ? '#87CEEB' : stability > 0.8 ? '#98FB98' :
+                          stability > 0.5 ? '#FFD700' : '#FF6347';
+
+            const color2 = stability > 1.2 ? '#1E90FF' : stability > 0.8 ? '#32CD32' :
+                          stability > 0.5 ? '#FFA500' : '#DC143C';
+
+            gradient.addColorStop(0, color1);
+            gradient.addColorStop(1, color2);
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Add noise/patterns based on volatility
+            if (simulation.stats.volatilityHistory.length > 0) {
+                const volatility = simulation.stats.volatilityHistory[simulation.stats.volatilityHistory.length - 1];
+                if (volatility > 0.3) {
+                    drawNoisePattern(volatility);
+                }
+            }
+        }
+
+        // Draw noise pattern for volatile worlds
+        function drawNoisePattern(volatility) {
+            ctx.globalAlpha = volatility * 0.3;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+
+            const noiseSize = 2 + volatility * 10;
+            const spacing = 5 + volatility * 15;
+
+            for (let x = 0; x < canvas.width; x += spacing) {
+                for (let y = 0; y < canvas.height; y += spacing) {
+                    if (Math.random() < volatility) {
+                        ctx.fillRect(x, y, noiseSize, noiseSize);
+                    }
+                }
+            }
+
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Draw world state indicators
+        function drawWorldStateIndicators() {
+            // Draw small indicators in corners
+            const indicators = [
+                {text: `🌱${(worldState.resource_spawn_rate * 100).toFixed(0)}%`, x: 10, y: 20},
+                {text: `💀${(worldState.hostility_level * 100).toFixed(0)}%`, x: canvas.width - 50, y: 20},
+                {text: `🧬${(worldState.mutation_rate * 100).toFixed(0)}%`, x: 10, y: canvas.height - 10},
+                {text: `⚖️${worldState.stability_index.toFixed(1)}`, x: canvas.width - 40, y: canvas.height - 10}
+            ];
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.font = '10px Arial';
+
+            for (const indicator of indicators) {
+                ctx.fillText(indicator.text, indicator.x, indicator.y);
+            }
+        }
+
+        // Event listeners
+        playPauseBtn.addEventListener('click', () => {
+            simulation.isRunning = !simulation.isRunning;
+            playPauseBtn.textContent = simulation.isRunning ? 'Pause' : 'Play';
+
+            if (simulation.isRunning) {
+                simulationStep();
+            } else {
+                if (simulation.settings.animationFrame) {
+                    clearTimeout(simulation.settings.animationFrame);
+                    simulation.settings.animationFrame = null;
+                }
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            simulation.isRunning = false;
+            playPauseBtn.textContent = 'Play';
+            initSimulation();
+        });
+
+        stepBtn.addEventListener('click', () => {
+            if (!simulation.isRunning) {
+                simulationStep();
+            }
+        });
+
+        speedSlider.addEventListener('input', () => {
+            const speed = parseInt(speedSlider.value);
+            speedValue.textContent = speed;
+            simulation.settings.speed = speed;
+        });
+
+        // Initialize
+        initSimulation();
+    </script>
+</body>
+</html>
