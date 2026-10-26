@@ -22,3 +22,7 @@ The UI shows the world, the current parameters and statistics: generation, popul
 ## License
 
 [MIT](LICENSE)
+
+---
+
+Author: [Fedor Makovskiy](https://fedor.alqira.ru), AI developer. Services and projects with quality metrics: [fedor.alqira.ru](https://fedor.alqira.ru).
